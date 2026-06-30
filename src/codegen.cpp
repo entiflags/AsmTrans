@@ -151,6 +151,7 @@ void codegen::compile_node(ast_node* node, std::string& asm_out)
 	{
 		auto assign_node = static_cast<assignment_node*>(node);
 		compile_node(assign_node->value.get(), asm_out);
+		registered_variables.insert(assign_node->var_name);
 		// нужно сделать это более хорошим способом
 		if (current_flavor == asm_flavor::nasm)
 		{
@@ -219,6 +220,7 @@ void codegen::compile_node(ast_node* node, std::string& asm_out)
 std::string codegen::generate(ast_node* root, asm_flavor flavor)
 {
 	current_flavor = flavor;
+	registered_variables.clear();
 
 	std::string asm_code;
 	if (current_flavor == asm_flavor::nasm)
@@ -240,5 +242,26 @@ std::string codegen::generate(ast_node* root, asm_flavor flavor)
 		compile_node(root, asm_code);
 	}
 	asm_code += "    ret\n";
+
+	if (!registered_variables.empty())
+	{
+		if (current_flavor == asm_flavor::nasm)
+		{
+			asm_code += "section .bss\n";
+			for (const auto& var : registered_variables)
+			{
+				asm_code += "    " + var + " resd 1\n";
+			}
+		}
+		else
+		{
+			asm_code += ".bss\n";
+			for (const auto& var : registered_variables)
+			{
+				asm_code += "    .lcomm " + var + ",4\n";
+			}
+		}
+	}
+
 	return asm_code;
 }

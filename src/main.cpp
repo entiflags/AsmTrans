@@ -42,7 +42,7 @@ if x == 10:
 	parser parser(tokens);
 	std::unique_ptr<ast_node> ast_root = parser.parse();
 	codegen codegen;
-	std::string asm_output = codegen.generate(ast_root.get(), asm_flavor::nasm);
+	std::string asm_output = codegen.generate(ast_root.get(), asm_flavor::att);
 	std::printf("compilation result\n%s\n", asm_output.c_str());
 	return 0;
 }
