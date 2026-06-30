@@ -49,9 +49,53 @@ void codegen::compile_node(ast_node* node, std::string& asm_out)
 		auto ifnode = static_cast<if_node*>(node);
 		static int label_counter = 0;
 		std::string end_label = ".L_END_IF_" + std::to_string(label_counter++);
-		compile_node(ifnode->condition.get(), asm_out);
-		asm_out += "    cmpl    $0,%eax\n";
-		asm_out += "    je      " + end_label + "\n";
+
+		bool is_comparison = false;
+		char comp_op = ' ';
+		binary_op_node* comp_node = nullptr;
+
+		if (ifnode->condition->type == ast_node_type::binary_op)
+		{
+			comp_node = static_cast<binary_op_node*>(ifnode->condition.get());
+			if (comp_node->op == 'e' || comp_node->op == 'n' || comp_node->op == 'l' || comp_node->op == 'g')
+			{
+				is_comparison = true;
+				comp_op = comp_node->op;
+			}
+		}
+
+		if (is_comparison && comp_node)
+		{
+			compile_node(comp_node->right.get(), asm_out);
+			asm_out += "    pushq   %rax\n";
+			compile_node(comp_node->left.get(), asm_out);
+			asm_out += "    popq    %rbx\n";
+
+			asm_out += "    cmpl    %ebx,%eax\n";
+
+			if (comp_op == 'e')
+			{
+				asm_out += "    jne     " + end_label + "\n";
+			}
+			if (comp_op == 'n')
+			{
+				asm_out += "    je      " + end_label + "\n";
+			}
+			if (comp_op == 'l')
+			{
+				asm_out += "    jge     " + end_label + "\n";
+			}
+			if (comp_op == 'g')
+			{
+				asm_out += "    jle     " + end_label + "\n";
+			}
+		}
+		else
+		{
+			compile_node(ifnode->condition.get(), asm_out);
+			asm_out += "    cmpl    $0,%eax\n";
+			asm_out += "    je      " + end_label + "\n";
+		}
 		asm_out += "    # IF BLOCK START\n";
 		for (const auto& stmt : ifnode->body)
 			compile_node(stmt.get(), asm_out);

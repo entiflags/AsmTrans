@@ -16,6 +16,10 @@ enum class token_type
 	newline,
 	indent,
 	detent,
+	equal,
+	notequal,
+	less,
+	greater,
 	eof
 };
 

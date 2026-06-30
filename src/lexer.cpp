@@ -82,7 +82,35 @@ std::vector<token> lexer::tokenize()
 		{
 		case '=':
 			advance();
-			tokens.push_back({ token_type::assign,"=" });
+			if (peek() == '=') 
+			{
+				advance();
+				tokens.push_back({ token_type::equal, "==" });
+			}
+			else
+			{
+				tokens.push_back({ token_type::assign,"=" });
+			}
+			break;
+		case '!':
+			advance();
+			if (peek() == '=')
+			{
+				advance();
+				tokens.push_back({ token_type::notequal, "!=" });
+			}
+			else
+			{
+				advance();// игнор пока что
+			}
+			break;
+		case '<':
+			advance();
+			tokens.push_back({ token_type::less, "<" });
+			break;
+		case '>':
+			advance();
+			tokens.push_back({ token_type::greater, ">"});
 			break;
 		case '+':
 			advance();

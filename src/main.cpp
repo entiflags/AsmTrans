@@ -18,6 +18,10 @@ const char* token_type_to_string(token_type type)
 	case token_type::newline: return "newline";
 	case token_type::indent: return "indent";
 	case token_type::detent: return "detent";
+	case token_type::equal: return "equal";
+	case token_type::notequal: return "notequal";
+	case token_type::less: return "less";
+	case token_type::greater: return "greater";
 	case token_type::eof: return "eof";
 	default: return "unknown";
 	}
@@ -26,7 +30,7 @@ const char* token_type_to_string(token_type type)
 int main()
 {
 	std::string_view code = R"(x = 10
-if x:
+if x == 10:
 	y = 20
 	z = 30
 )";

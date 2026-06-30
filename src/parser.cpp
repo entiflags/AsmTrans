@@ -63,7 +63,7 @@ std::unique_ptr<ast_node> parser::parse_statement()
 	if (peek().type == token_type::identifier && peek().value == "if")
 	{
 		advance();
-		auto condition = parse_expression();
+		auto condition = parse_comparison();
 
 		if (peek().type == token_type::colon)
 		{
@@ -147,4 +147,36 @@ std::unique_ptr<ast_node> parser::parse_primary()
 		return std::make_unique<variable_node>(current.value);
 	}
 	return nullptr;// Синтаксическая ошибка
+}
+std::unique_ptr<ast_node> parser::parse_comparison()
+{
+	auto left = parse_expression();
+
+	token_type t = peek().type;
+	if (t == token_type::equal || t == token_type::notequal || t == token_type::less || t == token_type::greater)
+	{
+		token op_token = advance();
+		char op_char = ' ';
+		if (op_token.type == token_type::equal)
+		{
+			op_char = 'e';
+		}
+		else if (op_token.type == token_type::notequal)
+		{
+			op_char = 'n';
+		}
+		else if (op_token.type == token_type::less)
+		{
+			op_char = 'l';
+		}
+		else if (op_token.type == token_type::greater)
+		{
+			op_char = 'g';
+		}
+
+		auto right = parse_expression();
+		left = std::make_unique<binary_op_node>(op_char, std::move(left), std::move(right));
+	}
+
+	return left;
 }

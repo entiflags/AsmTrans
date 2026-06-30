@@ -28,4 +28,5 @@ private:
 	std::unique_ptr<ast_node> parse_expression();
 	std::unique_ptr<ast_node> parse_term();
 	std::unique_ptr<ast_node> parse_primary();
+	std::unique_ptr<ast_node> parse_comparison();
 };
