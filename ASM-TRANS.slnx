@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ASM-TRANS.vcxproj" Id="7ffe97c1-9b9d-4880-a37d-ed7c2210894e" />
+</Solution>
