@@ -35,13 +35,27 @@ void codegen::compile_node(ast_node* node, std::string& asm_out)
 	auto [is_const, const_value] = try_fold_constants(node);
 	if (is_const)
 	{
-		asm_out += "    movl    $" + std::to_string(const_value) + ",%eax\n";
+		if (current_flavor == asm_flavor::nasm)
+		{
+			asm_out += "    mov     eax," + std::to_string(const_value) + "\n";
+		}
+		else
+		{
+			asm_out += "    movl    $" + std::to_string(const_value) + ",%eax\n";
+		}
 		return;
 	}
 	if (node->type == ast_node_type::variable)
 	{
 		auto var_node = static_cast<variable_node*>(node);
-		asm_out += "    movl    " + var_node->name + "(%rip),%eax\n";
+		if (current_flavor == asm_flavor::nasm)
+		{
+			asm_out += "    mov     eax,[" + var_node->name + "]\n";
+		}
+		else
+		{
+			asm_out += "    movl    " + var_node->name + "(%rip),%eax\n";
+		}
 		return;
 	}
 	if (node->type == ast_node_type::If)
@@ -67,34 +81,64 @@ void codegen::compile_node(ast_node* node, std::string& asm_out)
 		if (is_comparison && comp_node)
 		{
 			compile_node(comp_node->right.get(), asm_out);
-			asm_out += "    pushq   %rax\n";
+			asm_out += (current_flavor == asm_flavor::nasm) ? "    push    rax\n" : "    pushq   %rax\n";
 			compile_node(comp_node->left.get(), asm_out);
-			asm_out += "    popq    %rbx\n";
+			asm_out += (current_flavor == asm_flavor::nasm) ? "    pop     rbx\n" : "    popq    %rbx\n";
 
-			asm_out += "    cmpl    %ebx,%eax\n";
+			if (current_flavor == asm_flavor::nasm)
+			{
+				asm_out += "    cmp     eax,ebx\n";
 
-			if (comp_op == 'e')
-			{
-				asm_out += "    jne     " + end_label + "\n";
+				if (comp_op == 'e')
+				{
+					asm_out += "    jne     " + end_label + "\n";
+				}
+				if (comp_op == 'n')
+				{
+					asm_out += "    je      " + end_label + "\n";
+				}
+				if (comp_op == 'l')
+				{
+					asm_out += "    jge     " + end_label + "\n";
+				}
+				if (comp_op == 'g')
+				{
+					asm_out += "    jle     " + end_label + "\n";
+				}
 			}
-			if (comp_op == 'n')
+			else
 			{
-				asm_out += "    je      " + end_label + "\n";
-			}
-			if (comp_op == 'l')
-			{
-				asm_out += "    jge     " + end_label + "\n";
-			}
-			if (comp_op == 'g')
-			{
-				asm_out += "    jle     " + end_label + "\n";
+				asm_out += "    cmpl    %ebx,%eax\n";
+
+				if (comp_op == 'e')
+				{
+					asm_out += "    jne     " + end_label + "\n";
+				}
+				if (comp_op == 'n')
+				{
+					asm_out += "    je      " + end_label + "\n";
+				}
+				if (comp_op == 'l')
+				{
+					asm_out += "    jge     " + end_label + "\n";
+				}
+				if (comp_op == 'g')
+				{
+					asm_out += "    jle     " + end_label + "\n";
+				}
 			}
 		}
 		else
 		{
 			compile_node(ifnode->condition.get(), asm_out);
-			asm_out += "    cmpl    $0,%eax\n";
-			asm_out += "    je      " + end_label + "\n";
+			if (current_flavor == asm_flavor::nasm)
+			{
+				asm_out += "    cmp    eax,0\n    je     " + end_label + "\n";
+			}
+			else
+			{
+				asm_out += "    cmpl    $0,%eax\n    je     " + end_label + "\n";
+			}
 		}
 		asm_out += "    # IF BLOCK START\n";
 		for (const auto& stmt : ifnode->body)
@@ -108,8 +152,16 @@ void codegen::compile_node(ast_node* node, std::string& asm_out)
 		auto assign_node = static_cast<assignment_node*>(node);
 		compile_node(assign_node->value.get(), asm_out);
 		// нужно сделать это более хорошим способом
-		asm_out += "    # saving result into var " + assign_node->var_name + "\n";
-		asm_out += "    movl    %eax," + assign_node->var_name + "(%rip)\n";
+		if (current_flavor == asm_flavor::nasm)
+		{
+			asm_out += "    ; saving result into var " + assign_node->var_name + "\n";
+			asm_out += "    mov     [" + assign_node->var_name + "],eax\n";
+		}
+		else
+		{
+			asm_out += "    # saving result into var " + assign_node->var_name + "\n";
+			asm_out += "    movl    %eax," + assign_node->var_name + "(%rip)\n";
+		}
 	}
 	if (node->type == ast_node_type::binary_op)
 	{
@@ -118,31 +170,65 @@ void codegen::compile_node(ast_node* node, std::string& asm_out)
 		if (right_is_const)
 		{
 			compile_node(op_node->left.get(), asm_out);
-			switch (op_node->op)
+			if (current_flavor == asm_flavor::nasm)
 			{
-			case '+':asm_out += "    addl    $"+std::to_string(right_val)+",%eax\n";break;
-			case '-':asm_out += "    subl    $" + std::to_string(right_val) + ",%eax\n";break;
-			case '*':asm_out += "    imull   $" + std::to_string(right_val) + ",%eax\n";break;
+				switch (op_node->op)
+				{
+				case '+':asm_out += "    add    eax," + std::to_string(right_val) + "\n";break;
+				case '-':asm_out += "    sub    eax," + std::to_string(right_val) + "\n";break;
+				case '*':asm_out += "    imul   eax," + std::to_string(right_val) + "\n";break;
+				}
+			}
+			else
+			{
+				switch (op_node->op)
+				{
+				case '+':asm_out += "    addl    $" + std::to_string(right_val) + ",%eax\n";break;
+				case '-':asm_out += "    subl    $" + std::to_string(right_val) + ",%eax\n";break;
+				case '*':asm_out += "    imull   $" + std::to_string(right_val) + ",%eax\n";break;
+				}
 			}
 		}
 		else
 		{
 			compile_node(op_node->right.get(), asm_out);
-			asm_out += "    pushq   %rax\n";
+			asm_out += (current_flavor == asm_flavor::nasm) ? "    push   rax\n" : "    pushq   %rax\n";
 			compile_node(op_node->left.get(), asm_out);
-			asm_out += "    popq    %rbx\n";
-			switch (op_node->op)
+			asm_out += (current_flavor == asm_flavor::nasm) ? "    pop    rbx\n" : "    popq    %rbx\n";
+			if (current_flavor == asm_flavor::nasm)
 			{
-			case '+':asm_out += "    addl    %ebx,%eax\n";break;
-			case '-':asm_out += "    subl    %ebx,%eax\n";break;
-			case '*':asm_out += "    imull   %ebx,%eax\n";break;
+				switch (op_node->op)
+				{
+				case '+':asm_out += "    add    eax,ebx\n";break;
+				case '-':asm_out += "    sub    eax,ebx\n";break;
+				case '*':asm_out += "    imul   eax,ebx\n";break;
+				}
+			}
+			else
+			{
+				switch (op_node->op)
+				{
+				case '+':asm_out += "    addl    %ebx,%eax\n";break;
+				case '-':asm_out += "    subl    %ebx,%eax\n";break;
+				case '*':asm_out += "    imull   %ebx,%eax\n";break;
+				}
 			}
 		}
 	}
 }
-std::string codegen::generate(ast_node* root)
+std::string codegen::generate(ast_node* root, asm_flavor flavor)
 {
-	std::string asm_code = ".text\n.globl main\nmain:\n";
+	current_flavor = flavor;
+
+	std::string asm_code;
+	if (current_flavor == asm_flavor::nasm)
+	{
+		asm_code = "section .text\nglobal main\nmain:\n";
+	}
+	else
+	{
+		asm_code = ".text\n.globl main\nmain:\n";
+	}
 	if (root && root->type == ast_node_type::program)
 	{
 		auto prog_node = static_cast<program_node*>(root);
